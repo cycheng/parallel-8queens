@@ -8,6 +8,7 @@
       want to think how to do load balence between them
     * Optimizing memory usage
     * Use cmake !
+    * detect number of CPUs
 
 # Major Change
 * 2013 Dec 8
@@ -18,8 +19,11 @@
       http://blog.csdn.net/solstice/article/details/5196544
 
 # Licensing
+
 ### MIT License
 http://opensource.org/licenses/MIT
+* ./3rd-party/Ogre*
+* ./*.c
 
 # Performance Result :
 
@@ -30,7 +34,9 @@ http://opensource.org/licenses/MIT
     * BUILD OPTION :
         Release /O2 /Ob2 /Oi /Ot /Oy /GL /GF /Gm- /EHsc /GS- /Gy /arch:SSE2
         /fp:precise /Zc:wchar_t /Zc:forScope /Fp
-    * Score :
+
+## Score :
+
       +------------------+-------------+--------------+--------------+
       |                  | Base Serial |multithreading|Best Serial[1]|
       +------------------+-------------+--------------+--------------+
@@ -43,14 +49,16 @@ http://opensource.org/licenses/MIT
 
       [1] ref : http://rosettacode.org/wiki/N-queens_problem#C
 
-      +------------------+---------------+
-      | OPT METHOD for   | double worker |
-      | multithreading   | threads       |
-      | version          |               |
-      +------------------+---------------+
-      | n = 14           | 2927.982956   |
-      | Execution Cycles |               |
-      +------------------+---------------+
-      | n = 14           | 1131.899      |
-      | Exe Time (ms)    |               |
-      +------------------+---------------+
+      +------------------+---------------+---------------+
+      | OPT METHOD for   | double worker | memory opt    |
+      | multithreading   | threads       |               |
+      | version          |               |               |
+      +------------------+---------------+---------------+
+      | n = 14           | 2927.982956   |               |
+      | Execution Cycles |               |               |
+      +------------------+---------------+---------------+
+      | n = 14           | 1131.899      | 3595.199 [1]  |
+      | Exe Time (ms)    |               |               |
+      +------------------+---------------+---------------+
+
+      [1] becomes worse due to complex array index

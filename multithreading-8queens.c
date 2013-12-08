@@ -56,14 +56,14 @@ double get_counter()
   return (double) hi * (1 << 30) * 4 + lo;
 }
 
-typedef int bit_field;
+typedef char bit8_field;
 
 typedef struct _chessboard_status_t {
     unsigned int size;       // size = n
-    int *column;    // n
-    int *right;     // 2n - 1
-    int *left;      // 2n - 1
-    char *chessboard;// nxn
+    bit8_field *column;    // n
+    bit8_field *right;     // 2n - 1
+    bit8_field *left;      // 2n - 1
+    bit8_field *chessboard;// nxn
     unsigned int curRow;
 } chessboard_status_t;
 
@@ -104,7 +104,7 @@ int initChessboardState(chessboard_status_t *board, const int size);
 void resetChessboardState(chessboard_status_t *board);
 void uninitChessboardState(chessboard_status_t *board);
 
-void markQueen(chessboard_status_t *board, const int row, const int col) {
+/*void markQueen(chessboard_status_t *board, const int row, const int col) {
     const int size = board->size;
     const int rightidx = col - row + size - 1;
     const int leftidx = col + row;
@@ -116,6 +116,70 @@ void markQueen(chessboard_status_t *board, const int row, const int col) {
 
     board->column[col] = board->right[rightidx] = board->left[leftidx] = 0;
     *grid = 'Q';
+}*/
+
+int bitCheck(bit8_field byte, int pos) {
+    assert(pos < 8 && pos >= 0);
+    return (1 << pos) & byte;
+}
+
+void bitSet(bit8_field *byte, int pos) {
+    assert(pos < 8 && pos >= 0);
+    *byte |= (1 << pos);
+}
+
+void bitClear(bit8_field *byte, int pos) {
+    assert(pos < 8 && pos >= 0);
+    *byte &= ~(1 << pos);
+}
+
+int tryMarkQueen(chessboard_status_t *board, const int row, const int col) {
+    const int size = board->size;
+    const int rightidx = col - row + size - 1;
+    const int leftidx = col + row;
+    const int grididx = row * size + col;
+
+    bit8_field *colbit = &board->column[col/8];
+    bit8_field *rbit = &board->right[rightidx/8];
+    bit8_field *lbit = &board->left[leftidx/8];
+    bit8_field *grid = &board->chessboard[grididx/8];
+
+    if (bitCheck(*colbit, col % 8) &&
+        bitCheck(*rbit, rightidx % 8) &&
+        bitCheck(*lbit, leftidx % 8))
+    {
+        assert(0 != bitCheck(*grid, grididx % 8));
+
+        bitClear(colbit, col % 8);
+        bitClear(rbit, rightidx % 8);
+        bitClear(lbit, leftidx % 8);
+        bitClear(grid, grididx % 8);
+
+        return 1;
+    }
+    return 0;
+}
+
+void unmarkQueen(chessboard_status_t *board, const int row, const int col) {
+    const int size = board->size;
+    const int rightidx = col - row + size - 1;
+    const int leftidx = col + row;
+    const int grididx = row * size + col;
+
+    bit8_field *colbit = &board->column[col/8];
+    bit8_field *rbit = &board->right[rightidx/8];
+    bit8_field *lbit = &board->left[leftidx/8];
+    bit8_field *grid = &board->chessboard[grididx/8];
+
+    assert(0 == bitCheck(*grid, grididx % 8) &&
+           0 == bitCheck(*colbit, col % 8) &&
+           0 == bitCheck(*rbit, rightidx % 8) &&
+           0 == bitCheck(*lbit, leftidx % 8));
+
+    bitSet(colbit, col % 8);
+    bitSet(rbit, rightidx % 8);
+    bitSet(lbit, leftidx % 8);
+    bitSet(grid, grididx % 8);
 }
 
 void printChessboard(const chessboard_status_t *board) {
@@ -125,7 +189,12 @@ void printChessboard(const chessboard_status_t *board) {
     printf("\n");
     for(i = 0; i < size; i++) {
         for(j = 0; j < size; j++) {
-            printf("%c", board->chessboard[i*size + j]);
+            bit8_field *data = &board->chessboard[(i*size) / 8];
+            if (bitCheck(*data, (i*size) % 8))
+                printf("x");
+            else
+                printf("Q");
+            //printf("%c", board->chessboard[i*size + j]);
         }
         printf("\n");
     }
@@ -168,7 +237,6 @@ void destroyThreadPool(worker_t *workerpool, const int numcpu) {
     for (i = 0; i < numcpu; i++) {
         worker_t *worker = &workerpool[i];
         uninitWorkerThread(worker);
-        //destroyChessboardState(&worker->board);
     }
     free(workerpool);
 }
@@ -221,11 +289,15 @@ void destroyChessboardStatePool(chessboard_status_t *boardpool, const int numboa
 }
 
 int initChessboardState(chessboard_status_t *board, const int size) {
+    const int reqColumnSize = (size + (8 - 1))/8;
+    const int reqDiagonalSize = ((2 * size - 1) + (8 - 1))/8;
+    const int reqChessboardSize = (size * size + (8 - 1))/8;
+
     board->size = size;
-    board->column = (int *)malloc(sizeof(int) * size);
-    board->right = (int *)malloc(sizeof(int) * (2 * size - 1));
-    board->left = (int *)malloc(sizeof(int) * (2 * size - 1));
-    board->chessboard = (char *)malloc(sizeof(char) * size * size);
+    board->column = (bit8_field *)malloc(reqColumnSize);
+    board->right = (bit8_field *)malloc(reqDiagonalSize);
+    board->left = (bit8_field *)malloc(reqDiagonalSize);
+    board->chessboard = (bit8_field *)malloc(reqChessboardSize);
 
     if (! board->column || ! board->right ||
         ! board->left || ! board->chessboard)
@@ -243,17 +315,24 @@ FAILED :
 }
 
 void resetChessboardState(chessboard_status_t *board) {
-    int i;
+    //int i;
     const int size = board->size;
-    memset(board->chessboard, 'x', sizeof(char) * size * size);
-    for (i = 0; i < 2 * size - 1; i++) {
+    const int reqColumnSize = (size + (8 - 1))/8;
+    const int reqDiagonalSize = ((2 * size - 1) + (8 - 1))/8;
+    const int reqChessboardSize = (size * size + (8 - 1))/8;
+
+    memset(board->chessboard, 0xFF, reqChessboardSize);
+    memset(board->right, 0xFF, reqDiagonalSize);
+    memset(board->left, 0xFF, reqDiagonalSize);
+    memset(board->column, 0xFF, reqColumnSize);
+    /*for (i = 0; i < 2 * size - 1; i++) {
         board->right[i] = 1;
         board->left[i] = 1;
     }
 
     for (i = 0; i < size; i++) {
         board->column[i] = 1;
-    }
+    }*/
 }
 
 void uninitChessboardState(chessboard_status_t *board) {
@@ -291,7 +370,8 @@ void *queenWorker(void *data) {
             }
 
             worker->board->curRow = 1;
-            markQueen(worker->board, 0, curCol);
+            //markQueen(worker->board, 0, curCol);
+            tryMarkQueen(worker->board, 0, curCol);
 
             queenDFS(worker, worker->board->size, worker->board->curRow);
 
@@ -313,21 +393,22 @@ void queenDFS(worker_t *worker, const int n, const int curRow)
         int i;
         for (i = 0; i < n; i++)
         {
-            int j = i - curRow + n - 1;
-            int k = i + curRow;
+            //int j = i - curRow + n - 1;
+            //int k = i + curRow;
 			//left and right are arrays for special process
-            if (board->column[i] && board->right[j] && board->left[k])
-            {
+            if (tryMarkQueen(board, curRow, i)) {
                 //Mark Queens and recursive
-                char *grid = &board->chessboard[curRow * n + i];
+
+                //char *grid = &board->chessboard[curRow * n + i];
                 //board->column[i] = board->right[j] = board->left[k] = 0;
                 //*grid = 'Q';
-                markQueen(board, curRow, i);
+                //markQueen(board, curRow, i);
 
                 queenDFS(worker, n, curRow + 1);
 
-                board->column[i] = board->right[j] = board->left[k] = 1;
-                *grid = 'x';
+                unmarkQueen(board, curRow, i);
+                //board->column[i] = board->right[j] = board->left[k] = 1;
+                //*grid = 'x';
             }
         }
     }
@@ -341,25 +422,18 @@ void queenDFS(worker_t *worker, const int n, const int curRow)
 int main(int c, char **v)
 {
 	int nn;
-	//double executionTime;
     OgreTimer_t timer;
     unsigned long endTime = 0;
 
-    if (c <= 1 || (nn = atoi(v[1])) <= 0) nn = 8;
+    if (c <= 1 || (nn = atoi(v[1])) <= 0) nn = 14;
 
     OgreTimerInit(&timer);
-    //scanf("%d", &n);
-    //start_counter();
 
     {
         // variables to be shared & updated **between threads**
         unsigned int totalSolution = 0;
         unsigned int colToBeProcessed = 0;
         unsigned int runCount = 0;
-        //unsigned int runCount = 0;
-        //pthread_mutex_t doneLock = PTHREAD_MUTEX_INITIALIZER;
-        //pthread_cond_t condDone = PTHREAD_COND_INITIALIZER;
-
         // other local variables
         int i;
         /* todo : according to # of real core on the machine */
@@ -382,18 +456,12 @@ int main(int c, char **v)
             pthread_mutex_unlock(&worker->lock);
         }
 
-        //pthread_mutex_lock(&doneLock);
-        //runCount = numcpu;
         for (i = 0; i < numcpu; i++) {
             chessboard_status_t *board = &boardpool[i];
             worker_t *worker = &workerpool[i];
 
             worker->totalSolution = &totalSolution;
             worker->colToBeProcessed = &colToBeProcessed;
-
-            //worker->runCount = &runCount;
-            //worker->doneLock = &doneLock;
-            //worker->condDone = &condDone;
 
             worker->board = board;
 
@@ -412,19 +480,12 @@ int main(int c, char **v)
             pthread_mutex_unlock(&worker->lock);
         }
 
-        //while(runCount != 0) {
-        //    //unsigned int count = InterlockedExchangeAdd(&runCount, 0);
-        //    pthread_cond_wait(&condDone, &doneLock);
-        //}
-        //pthread_mutex_unlock(&doneLock);
-
     EXIT :
         destroyThreadPool(workerpool, numcpu);
         destroyChessboardStatePool(boardpool, numcpu);
         printf("\nTotal number of solutions : %d \n\n", totalSolution);
     }
     endTime = OgreTimerGetMicroseconds(&timer);
-	//executionTime = get_counter();
 	printf("referenced execution time : %lf msec\n", (float)endTime / 1000.f);
 	return 0;
 }
