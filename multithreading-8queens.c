@@ -3,14 +3,22 @@
 #include <pthread.h>
 #include <memory.h>
 #include <assert.h>
-#include <Windows.h>
+#include "3rd-party\OgrePlatform.h"
+
+#if OGRE_PLATFORM == OGRE_PLATFORM_WIN32
+#   include "3rd-party\OgreTimerWin32.h"
+#else
+#   pragma error "Not implement yet !"
+#endif
 
 //Timing function!!!
 static unsigned cyc_hi = 0;
 static unsigned cyc_lo = 0;
 
+#if OGRE_CPU == OGRE_CPU_X86
 void access_counter(unsigned *hi, unsigned *lo)
 {
+#   if OGRE_COMPILER == OGRE_COMPILER_MSVC
     unsigned int _hi, _lo;
 	__asm rdtsc
 	__asm mov _lo, eax
@@ -18,14 +26,15 @@ void access_counter(unsigned *hi, unsigned *lo)
 
     *hi = _hi;
     *lo = _lo;
-#if 0
+#   else
   /* Get cycle counter */
   asm("rdtsc; movl %%edx,%0; movl %%eax,%1"
       : "=r" (*hi), "=r" (*lo)
       : /* No input */
       : "%edx", "%eax");
-#endif
+#   endif
 }
+#endif
 
 void start_counter()
 {
@@ -46,6 +55,8 @@ double get_counter()
   hi = ncyc_hi - cyc_hi - borrow;
   return (double) hi * (1 << 30) * 4 + lo;
 }
+
+typedef int bit_field;
 
 typedef struct _chessboard_status_t {
     unsigned int size;       // size = n
@@ -275,18 +286,12 @@ void *queenWorker(void *data) {
 
 
             if (curCol >= worker->board->size) {
-                //InterlockedDecrement(worker->runCount);
-                //pthread_mutex_lock(worker->doneLock);
-                //--(*worker->runCount);
-                //pthread_cond_signal(worker->condDone);
-                //pthread_mutex_unlock(worker->doneLock);
                 pthread_cond_signal(&worker->condDone);
                 break;
             }
 
             worker->board->curRow = 1;
             markQueen(worker->board, 0, curCol);
-            //worker->board->column[curCol] = 1;
 
             queenDFS(worker, worker->board->size, worker->board->curRow);
 
@@ -333,15 +338,18 @@ void queenDFS(worker_t *worker, const int n, const int curRow)
     }
 }
 
-int main(void)
+int main(int c, char **v)
 {
-	volatile int _n = 14;
-    int boardsize = _n;
-	double executionTime;
+	int nn;
+	//double executionTime;
+    OgreTimer_t timer;
+    unsigned long endTime = 0;
 
-    printf("Please input the size of chessboard: 14\n");
+    if (c <= 1 || (nn = atoi(v[1])) <= 0) nn = 8;
+
+    OgreTimerInit(&timer);
     //scanf("%d", &n);
-    start_counter();
+    //start_counter();
 
     {
         // variables to be shared & updated **between threads**
@@ -355,9 +363,9 @@ int main(void)
         // other local variables
         int i;
         /* todo : according to # of real core on the machine */
-        const int numcpu = 4;
+        const int numcpu = 8;
         worker_t *workerpool = createThreadPool(numcpu, &runCount);
-        chessboard_status_t *boardpool = createChessboardStatePool(numcpu, boardsize);
+        chessboard_status_t *boardpool = createChessboardStatePool(numcpu, nn);
 
         if (! workerpool || ! boardpool) {
             printf("Create workpool or boardpool failed, exit test !\n");
@@ -415,11 +423,10 @@ int main(void)
         destroyChessboardStatePool(boardpool, numcpu);
         printf("\nTotal number of solutions : %d \n\n", totalSolution);
     }
-
-	executionTime = get_counter();
-	printf("referenced execution cycles : %lf\n", executionTime / 1000000);
-	//Executing in Linux does not need this....
-    system("pause");
+    endTime = OgreTimerGetMicroseconds(&timer);
+	//executionTime = get_counter();
+	printf("referenced execution time : %lf msec\n", (float)endTime / 1000.f);
 	return 0;
 }
+
 
