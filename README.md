@@ -4,15 +4,7 @@
     * http://en.wikipedia.org/wiki/Eight_queens_puzzle
 
 * TODO :
-    * reduce search space :
-      put needed check column into queue, unnecessary to check all column every
-      time.
-      Current for loop count = 377901384 (n = 14)
-      Target = 242590054 (n = 14)
-
-
-    * Optimizing memory usage 2 : Efficient memory access
-
+    * Cleanup code ! And use all threads !
     * Estimating each thread's loading, i.e. how many path they traversed, I
       want to think how to do load balence between them
       (important!)
@@ -21,6 +13,14 @@
     * detect number of CPUs
 
 # Major Change
+* 2013 Dec 15
+    * reduce search space :
+      put needed check column into queue, unnecessary to check all column every
+      time.
+      Original for loop count = 377901384 (n = 14)
+      New = 27358552 (n = 14)
+      => also optimizing memory usage : Efficient memory access
+
 * 2013 Dec 8
     * Change performance measurment method, don't use "rdtsc" (x86 instruction)
       when we are multicore, reason ref :
