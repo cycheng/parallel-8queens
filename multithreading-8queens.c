@@ -65,6 +65,7 @@ typedef struct _chessboard_status_t {
     bit8_field *left;      // 2n - 1
     bit8_field *chessboard;// nxn
     unsigned int curRow;
+    uint32 all;
 } chessboard_status_t;
 
 typedef struct _worker_t {
@@ -81,6 +82,8 @@ typedef struct _worker_t {
     // them, instead we use atomic function
     unsigned int *colToBeProcessed;
     unsigned int *totalSolution;
+
+    unsigned int *totalForLoopCount;
 
     unsigned int *runCount;
 
@@ -189,8 +192,8 @@ void printChessboard(const chessboard_status_t *board) {
     printf("\n");
     for(i = 0; i < size; i++) {
         for(j = 0; j < size; j++) {
-            bit8_field *data = &board->chessboard[(i*size) / 8];
-            if (bitCheck(*data, (i*size) % 8))
+            bit8_field *data = &board->chessboard[(i*size + j) / 8];
+            if (bitCheck(*data, (i*size + j) % 8))
                 printf("x");
             else
                 printf("Q");
@@ -200,7 +203,7 @@ void printChessboard(const chessboard_status_t *board) {
     }
 }
 
-void queenDFS(worker_t *worker, const int n, const int curRow);
+//void queenDFS(worker_t *worker, uint32 leftD, uint32 cols, uint32 rightD, uint32 all);
 
 worker_t * createThreadPool(const int numcpu, unsigned int *sharedRunCount) {
     int i = 0;
@@ -298,6 +301,7 @@ int initChessboardState(chessboard_status_t *board, const int size) {
     board->right = (bit8_field *)malloc(reqDiagonalSize);
     board->left = (bit8_field *)malloc(reqDiagonalSize);
     board->chessboard = (bit8_field *)malloc(reqChessboardSize);
+    board->all = (1 << size) - 1;
 
     if (! board->column || ! board->right ||
         ! board->left || ! board->chessboard)
@@ -342,6 +346,28 @@ void uninitChessboardState(chessboard_status_t *board) {
     if (board->chessboard) free(board->chessboard);
 }
 
+/** Algorithm comes from : http://www.cl.cam.ac.uk/~mr10/backtrk.pdf
+ *  Reduced unnecessary search space
+ *
+ *  CY : This algorithm is really beautiful and efficiency !
+ */
+void queenDFS(worker_t *worker, uint32 leftD, uint32 cols, uint32 rightD, uint32 all) {
+    uint32 poss = ~(leftD | cols | rightD) & all;
+
+    if (cols == all) {
+        worker->numSol++;
+        return;
+    }
+
+    while (poss) {
+        uint32 bits = poss & (~poss + 1);
+        poss -= bits;
+        queenDFS(worker, (leftD | bits) << 1, cols | bits, (rightD | bits) >> 1, all);
+        //printf("%x, %x, %x\n", (leftD | bits) << 1, cols | bits, (rightD | bits) >> 1);
+        InterlockedIncrement(worker->totalForLoopCount);
+    }
+}
+
 void *queenWorker(void *data) {
     worker_t *worker = (worker_t *)data;
     unsigned int threadId = InterlockedIncrement(worker->runCount) - 1;
@@ -363,7 +389,6 @@ void *queenWorker(void *data) {
             // ref : http://msdn.microsoft.com/en-us/library/windows/desktop/ms683614(v=vs.85).aspx
             unsigned int curCol = InterlockedIncrement(worker->colToBeProcessed) - 1;
 
-
             if (curCol >= worker->board->size) {
                 pthread_cond_signal(&worker->condDone);
                 break;
@@ -371,44 +396,39 @@ void *queenWorker(void *data) {
 
             worker->board->curRow = 1;
             //markQueen(worker->board, 0, curCol);
-            tryMarkQueen(worker->board, 0, curCol);
+            //tryMarkQueen(worker->board, 0, curCol);
 
-            queenDFS(worker, worker->board->size, worker->board->curRow);
+            //queenDFS(worker, worker->board->size, worker->board->curRow);
+            //queenDFS(worker, 1 << (curCol + 1), 1 << curCol, (1 << curCol) >> 1, worker->board->all);
+            //printf("%x, %x, %x\n", 1 << (curCol + 1), curCol | (1 << curCol), 1 >> (curCol + 1));
+            queenDFS(worker, 0, 0, 0, worker->board->all);
 
             InterlockedExchangeAdd(worker->totalSolution, worker->numSol);
             //printf("tid %d : curCol = %d, sol = %d\n", threadId, curCol, worker->numSol);
 
             worker->numSol = 0;
-            resetChessboardState(worker->board);
+            //resetChessboardState(worker->board);
+            break;
         }
     }
     return NULL;
 }
-
+/*
 void queenDFS(worker_t *worker, const int n, const int curRow)
 {
     chessboard_status_t *board = worker->board;
     if (curRow < n)
     {
-        int i;
-        for (i = 0; i < n; i++)
+        int i, j, k, l;
+        for (i = 0, j = 8; i < n; i++)
         {
-            //int j = i - curRow + n - 1;
-            //int k = i + curRow;
+            //InterlockedIncrement(worker->totalForLoopCount);
 			//left and right are arrays for special process
+            if (--j == 0) {}
+
             if (tryMarkQueen(board, curRow, i)) {
-                //Mark Queens and recursive
-
-                //char *grid = &board->chessboard[curRow * n + i];
-                //board->column[i] = board->right[j] = board->left[k] = 0;
-                //*grid = 'Q';
-                //markQueen(board, curRow, i);
-
                 queenDFS(worker, n, curRow + 1);
-
                 unmarkQueen(board, curRow, i);
-                //board->column[i] = board->right[j] = board->left[k] = 1;
-                //*grid = 'x';
             }
         }
     }
@@ -417,7 +437,7 @@ void queenDFS(worker_t *worker, const int n, const int curRow)
         //printChessboard(board);
         worker->numSol++;
     }
-}
+}*/
 
 int main(int c, char **v)
 {
@@ -434,10 +454,11 @@ int main(int c, char **v)
         unsigned int totalSolution = 0;
         unsigned int colToBeProcessed = 0;
         unsigned int runCount = 0;
+        unsigned int totalForLoopCount = 0;
         // other local variables
         int i;
         /* todo : according to # of real core on the machine */
-        const int numcpu = 8;
+        const int numcpu = 1;
         worker_t *workerpool = createThreadPool(numcpu, &runCount);
         chessboard_status_t *boardpool = createChessboardStatePool(numcpu, nn);
 
@@ -462,6 +483,7 @@ int main(int c, char **v)
 
             worker->totalSolution = &totalSolution;
             worker->colToBeProcessed = &colToBeProcessed;
+            worker->totalForLoopCount = &totalForLoopCount;
 
             worker->board = board;
 
@@ -470,7 +492,7 @@ int main(int c, char **v)
             pthread_mutex_unlock(&worker->lock);
         }
 
-        // wait to make sure all threads are ready
+        // wait to make sure all threads are done
         for (i = 0; i < numcpu; i++) {
             worker_t *worker = &workerpool[i];
             pthread_mutex_lock(&worker->lock);
@@ -483,11 +505,12 @@ int main(int c, char **v)
     EXIT :
         destroyThreadPool(workerpool, numcpu);
         destroyChessboardStatePool(boardpool, numcpu);
+        endTime = OgreTimerGetMicroseconds(&timer);
         printf("\nTotal number of solutions : %d \n\n", totalSolution);
-    }
-    endTime = OgreTimerGetMicroseconds(&timer);
-	printf("referenced execution time : %lf msec\n", (float)endTime / 1000.f);
-	return 0;
+	    printf("referenced execution time : %lf msec\n", (float)endTime / 1000.f);
+        printf("Total For Loop = %d\n", totalForLoopCount);
+	}
+    return 0;
 }
 
 

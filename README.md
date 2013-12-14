@@ -4,9 +4,19 @@
     * http://en.wikipedia.org/wiki/Eight_queens_puzzle
 
 * TODO :
+    * reduce search space :
+      put needed check column into queue, unnecessary to check all column every
+      time.
+      Current for loop count = 377901384 (n = 14)
+      Target = 242590054 (n = 14)
+
+
+    * Optimizing memory usage 2 : Efficient memory access
+
     * Estimating each thread's loading, i.e. how many path they traversed, I
       want to think how to do load balence between them
-    * Optimizing memory usage
+      (important!)
+
     * Use cmake !
     * detect number of CPUs
 
@@ -49,16 +59,19 @@ http://opensource.org/licenses/MIT
 
       [1] ref : http://rosettacode.org/wiki/N-queens_problem#C
 
-      +------------------+---------------+---------------+
-      | OPT METHOD for   | double worker | memory opt    |
-      | multithreading   | threads       |               |
-      | version          |               |               |
-      +------------------+---------------+---------------+
-      | n = 14           | 2927.982956   |               |
-      | Execution Cycles |               |               |
-      +------------------+---------------+---------------+
-      | n = 14           | 1131.899      | 3595.199 [1]  |
-      | Exe Time (ms)    |               |               |
-      +------------------+---------------+---------------+
+      +------------------+---------------+---------------+---------------+
+      | OPT METHOD for   | double worker | memory opt    | new search    |
+      | multithreading   | threads       |               | algorithm     |
+      | version          |               |               |               |
+      +------------------+---------------+---------------+---------------+
+      | n = 14           | 2927.982956   |               |               |
+      | Execution Cycles |               |               |               |
+      +------------------+---------------+---------------+---------------+
+      | n = 14           | 1131.899      | 3318.048 [1]  | 338.616 [2]   |
+      | Exe Time (ms)    |               |               |               |
+      +------------------+---------------+---------------+---------------+
 
       [1] becomes worse due to complex array index
+          What I learned : be careful of bit optimization, complex index should avoid
+      [2] Algorithm comes from http://www.cl.cam.ac.uk/~mr10/backtrk.pdf
+          Very beautiful algorithm !
