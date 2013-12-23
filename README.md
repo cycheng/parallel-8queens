@@ -59,19 +59,21 @@ http://opensource.org/licenses/MIT
 
       [1] ref : http://rosettacode.org/wiki/N-queens_problem#C
 
-      +------------------+---------------+---------------+---------------+
-      | OPT METHOD for   | double worker | memory opt    | new search    |
-      | multithreading   | threads       |               | algorithm     |
-      | version          |               |               |               |
-      +------------------+---------------+---------------+---------------+
-      | n = 14           | 2927.982956   |               |               |
-      | Execution Cycles |               |               |               |
-      +------------------+---------------+---------------+---------------+
-      | n = 14           | 1131.899      | 3318.048 [1]  | 338.616 [2]   |
-      | Exe Time (ms)    |               |               |               |
-      +------------------+---------------+---------------+---------------+
+      +------------------+---------------+---------------+---------------+---------------+
+      | OPT METHOD for   | double worker | memory opt    | new search    | Remove        |
+      | multithreading   | threads       |               | algorithm     | unnecessary   |
+      | version          |               |               |               | Code [3]      |
+      +------------------+---------------+---------------+---------------+---------------+
+      | n = 14           | 2927.982956   |               |               |               |
+      | Execution Cycles |               |               |               |               |
+      +------------------+---------------+---------------+---------------+---------------+
+      | n = 14           | 1131.899      | 3318.048 [1]  | 338.616 [2]   | 332.604       |
+      | Exe Time (ms)    |               |               |               |               |
+      +------------------+---------------+---------------+---------------+---------------+
 
       [1] becomes worse due to complex array index
           What I learned : be careful of bit optimization, complex index should avoid
       [2] Algorithm comes from http://www.cl.cam.ac.uk/~mr10/backtrk.pdf
           Very beautiful algorithm !
+      [3] Remove malloc, memset, .. => original code for "memory opt", but
+          unnecessary for new algorithm
