@@ -163,8 +163,6 @@ void queenDFS(worker_t *worker, uint32 leftD, uint32 cols, uint32 rightD, uint32
         uint32 bits = poss & (~poss + 1);
         poss -= bits;
         queenDFS(worker, (leftD | bits) << 1, cols | bits, (rightD | bits) >> 1, all);
-        //printf("%x, %x, %x\n", (leftD | bits) << 1, cols | bits, (rightD | bits) >> 1);
-        //InterlockedIncrement(worker->totalForLoopCount);
     }
 }
 
@@ -195,18 +193,14 @@ void *queenWorker(void *data) {
             }
 
             worker->board->curRow = 1;
-
-            //queenDFS(worker, worker->board->size, worker->board->curRow);
-            //queenDFS(worker, 1 << (curCol + 1), 1 << curCol, (1 << curCol) >> 1, worker->board->all);
-            //printf("%x, %x, %x\n", 1 << (curCol + 1), curCol | (1 << curCol), 1 >> (curCol + 1));
-            queenDFS(worker, 0, 0, 0, worker->board->all);
+            // search solution of each column
+            queenDFS(worker, 1 << (curCol + 1), 1 << curCol, (1 << curCol) >> 1, worker->board->all);
+            //printf("%x, %x, %x\n", 1 << (curCol + 1), 1 << curCol, (1 << curCol) >> 1);
 
             InterlockedExchangeAdd(worker->totalSolution, worker->numSol);
             //printf("tid %d : curCol = %d, sol = %d\n", threadId, curCol, worker->numSol);
 
             worker->numSol = 0;
-            //resetChessboardState(worker->board);
-            break;
         }
     }
     return NULL;
@@ -231,7 +225,7 @@ int main(int c, char **v)
         // other local variables
         int i;
         /* todo : according to # of real core on the machine */
-        const int numcpu = 1;
+        const int numcpu = 8;
         worker_t *workerpool = createThreadPool(numcpu, &runCount);
         chessboard_status_t *boardpool = createChessboardStatePool(numcpu, nn);
 

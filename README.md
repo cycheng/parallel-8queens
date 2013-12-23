@@ -4,7 +4,6 @@
     * http://en.wikipedia.org/wiki/Eight_queens_puzzle
 
 * TODO :
-    * Cleanup code ! And use all threads !
     * Estimating each thread's loading, i.e. how many path they traversed, I
       want to think how to do load balence between them
       (important!)
@@ -13,6 +12,9 @@
     * detect number of CPUs
 
 # Major Change
+* 2013 Dec 23
+    * Cleanup code ! And use all threads !
+
 * 2013 Dec 15
     * reduce search space :
       put needed check column into queue, unnecessary to check all column every
@@ -59,17 +61,17 @@ http://opensource.org/licenses/MIT
 
       [1] ref : http://rosettacode.org/wiki/N-queens_problem#C
 
-      +------------------+---------------+---------------+---------------+---------------+
-      | OPT METHOD for   | double worker | memory opt    | new search    | Remove        |
-      | multithreading   | threads       |               | algorithm     | unnecessary   |
-      | version          |               |               |               | Code [3]      |
-      +------------------+---------------+---------------+---------------+---------------+
-      | n = 14           | 2927.982956   |               |               |               |
-      | Execution Cycles |               |               |               |               |
-      +------------------+---------------+---------------+---------------+---------------+
-      | n = 14           | 1131.899      | 3318.048 [1]  | 338.616 [2]   | 332.604       |
-      | Exe Time (ms)    |               |               |               |               |
-      +------------------+---------------+---------------+---------------+---------------+
+      +------------------+---------------+---------------+---------------+---------------+---------------+
+      | OPT METHOD for   | double worker | memory opt    | new search    | Remove        | use all       |
+      | multithreading   | threads       |               | algorithm     | unnecessary   | threads for   |
+      | version          |               |               |               | Code [3]      | new alg       |
+      +------------------+---------------+---------------+---------------+---------------+---------------+
+      | n = 14           | 2927.982956   |               |               |               |               |
+      | Execution Cycles |               |               |               |               |               |
+      +------------------+---------------+---------------+---------------+---------------+---------------+
+      | n = 14           | 1131.899      | 3318.048 [1]  | 338.616 [2]   | 332.604       | 157.76 [4]    |
+      | Exe Time (ms)    |               |               |               |               |               |
+      +------------------+---------------+---------------+---------------+---------------+---------------+
 
       [1] becomes worse due to complex array index
           What I learned : be careful of bit optimization, complex index should avoid
@@ -77,3 +79,4 @@ http://opensource.org/licenses/MIT
           Very beautiful algorithm !
       [3] Remove malloc, memset, .. => original code for "memory opt", but
           unnecessary for new algorithm
+      [4] I use 8 threads to process 14 columns
