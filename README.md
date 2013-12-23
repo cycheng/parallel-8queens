@@ -4,16 +4,17 @@
     * http://en.wikipedia.org/wiki/Eight_queens_puzzle
 
 * TODO :
-    * Estimating each thread's loading, i.e. how many path they traversed, I
-      want to think how to do load balence between them
-      (important!)
-
+    * Think how to load balence ?
+      - queenDFS
+      - e.g. when depth < 10, launch available threads to process
     * Use cmake !
     * detect number of CPUs
 
 # Major Change
 * 2013 Dec 23
     * Cleanup code ! And use all threads !
+    * Estimating each thread's loading, i.e. how many path they traversed, I
+      want to know the load balance opportunities (important!), ref [5]
 
 * 2013 Dec 15
     * reduce search space :
@@ -48,7 +49,6 @@ http://opensource.org/licenses/MIT
         /fp:precise /Zc:wchar_t /Zc:forScope /Fp
 
 ## Score :
-
       +------------------+-------------+--------------+--------------+
       |                  | Base Serial |multithreading|Best Serial[1]|
       +------------------+-------------+--------------+--------------+
@@ -80,3 +80,17 @@ http://opensource.org/licenses/MIT
       [3] Remove malloc, memset, .. => original code for "memory opt", but
           unnecessary for new algorithm
       [4] I use 8 threads to process 14 columns
+
+      [5] Each thread's loading (8 threads) :
+      +------------+------------+------------+------------+------------+------------+------------+------------+------------+
+      |            | tid 0      | tid 1      | tid 2      | tid 3      | tid 4      | tid 5      | tid 6      | tid 7      |
+      +------------+------------+------------+------------+------------+------------+------------+------------+------------+
+      | n = 14     |    3604110 |    6048211 |    4202096 |    3881587 |    2136837 |    3881587 |    1603894 |    2000216 |
+      | loop count |            |            |            |            |            |            |            |            |
+      +------------+------------+------------+------------+------------+------------+------------+------------+------------+
+      | n = 17     |  767002366 |  888715541 | 1934170694 |  468576244 |  508458484 | 1921838511 |  994314632 |  533945442 |
+      | loop count |            |            |            |            |            |            |            |            |
+      +------------+------------+------------+------------+------------+------------+------------+------------+------------+
+
+
+

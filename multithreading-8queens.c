@@ -26,6 +26,7 @@ typedef struct _worker_t {
     int done;
     chessboard_status_t *board;
     unsigned int numSol;
+    unsigned int forLoopCount;
 
     // shared variables between threads, we don't use lock/unlock to protect
     // them, instead we use atomic function
@@ -149,7 +150,7 @@ void uninitChessboardState(chessboard_status_t *board) {}
 /** Algorithm comes from : http://www.cl.cam.ac.uk/~mr10/backtrk.pdf
  *  Reduced unnecessary search space
  *
- *  CY : This algorithm is really beautiful and efficiency !
+ *  CY : This algorithm is really beautiful and efficient !
  */
 void queenDFS(worker_t *worker, uint32 leftD, uint32 cols, uint32 rightD, uint32 all) {
     uint32 poss = ~(leftD | cols | rightD) & all;
@@ -163,12 +164,14 @@ void queenDFS(worker_t *worker, uint32 leftD, uint32 cols, uint32 rightD, uint32
         uint32 bits = poss & (~poss + 1);
         poss -= bits;
         queenDFS(worker, (leftD | bits) << 1, cols | bits, (rightD | bits) >> 1, all);
+        worker->forLoopCount++;
     }
 }
 
 void *queenWorker(void *data) {
     worker_t *worker = (worker_t *)data;
     unsigned int threadId = InterlockedIncrement(worker->runCount) - 1;
+    uint32 myTotalForLoopCount = 0;
 
     pthread_mutex_lock(&worker->lock);
     worker->done = 1;
@@ -198,11 +201,15 @@ void *queenWorker(void *data) {
             //printf("%x, %x, %x\n", 1 << (curCol + 1), 1 << curCol, (1 << curCol) >> 1);
 
             InterlockedExchangeAdd(worker->totalSolution, worker->numSol);
-            //printf("tid %d : curCol = %d, sol = %d\n", threadId, curCol, worker->numSol);
+            printf("tid %d : curCol = %3d, sol = %9d, for loop count = %9d\n",
+                threadId, curCol, worker->numSol, worker->forLoopCount);
 
+            myTotalForLoopCount += worker->forLoopCount;
             worker->numSol = 0;
+            worker->forLoopCount = 0;
         }
     }
+    printf("tid %d : my total for loop count = %9d\n", threadId, myTotalForLoopCount);
     return NULL;
 }
 
@@ -274,7 +281,7 @@ int main(int c, char **v)
         destroyChessboardStatePool(boardpool, numcpu);
         endTime = OgreTimerGetMicroseconds(&timer);
         printf("\nTotal number of solutions : %d \n\n", totalSolution);
-	    printf("referenced execution time : %lf msec\n", (float)endTime / 1000.f);
+        printf("referenced execution time : %lf msec\n", (float)endTime / 1000.f);
         printf("Total For Loop = %d\n", totalForLoopCount);
 	}
     return 0;
